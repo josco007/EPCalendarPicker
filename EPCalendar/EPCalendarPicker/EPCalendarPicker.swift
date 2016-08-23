@@ -20,8 +20,11 @@ public class EPCalendarPicker: UICollectionViewController {
 
     public var calendarDelegate : EPCalendarPickerDelegate?
     public var multiSelectEnabled: Bool
+    public var doneBtnSingleSelectEnabled:Bool
     public var showsTodaysButton: Bool = true
     private var arrSelectedDates = [NSDate]()
+    private var selectedDate = NSDate()
+    private var selectedCell:EPCalendarCell1?
     public var tintColor: UIColor
     
     public var dayDisabledTintColor: UIColor
@@ -85,7 +88,7 @@ public class EPCalendarPicker: UICollectionViewController {
 
         var arrayBarButtons  = [UIBarButtonItem]()
         
-        if multiSelectEnabled {
+        if multiSelectEnabled || doneBtnSingleSelectEnabled  {
             let doneButton = UIBarButtonItem(barButtonSystemItem: UIBarButtonSystemItem.Done, target: self, action: #selector(EPCalendarPicker.onTouchDoneButton))
             arrayBarButtons.append(doneButton)
         }
@@ -107,27 +110,36 @@ public class EPCalendarPicker: UICollectionViewController {
     
 
     public convenience init(){
-        self.init(startYear: EPDefaults.startYear, endYear: EPDefaults.endYear, multiSelection: EPDefaults.multiSelection, selectedDates: nil);
+        self.init(startYear: EPDefaults.startYear, endYear: EPDefaults.endYear, multiSelection: EPDefaults.multiSelection, doneBtnSingleSelect: EPDefaults.doneBtnSingleSelection, selectedDates: nil);
     }
     
     public convenience init(startYear: Int, endYear: Int) {
-        self.init(startYear:startYear, endYear:endYear, multiSelection: EPDefaults.multiSelection, selectedDates: nil)
+        self.init(startYear:startYear, endYear:endYear, multiSelection: EPDefaults.multiSelection, doneBtnSingleSelect: EPDefaults.doneBtnSingleSelection, selectedDates: nil)
     }
     
     public convenience init(multiSelection: Bool) {
-        self.init(startYear: EPDefaults.startYear, endYear: EPDefaults.endYear, multiSelection: multiSelection, selectedDates: nil)
+        self.init(startYear: EPDefaults.startYear, endYear: EPDefaults.endYear, multiSelection: multiSelection, doneBtnSingleSelect: EPDefaults.doneBtnSingleSelection,selectedDates: nil)
     }
     
     public convenience init(startYear: Int, endYear: Int, multiSelection: Bool) {
-        self.init(startYear: EPDefaults.startYear, endYear: EPDefaults.endYear, multiSelection: multiSelection, selectedDates: nil)
+        self.init(startYear: EPDefaults.startYear, endYear: EPDefaults.endYear, multiSelection: multiSelection, doneBtnSingleSelect: EPDefaults.doneBtnSingleSelection, selectedDates: nil)
     }
     
-    public init(startYear: Int, endYear: Int, multiSelection: Bool, selectedDates: [NSDate]?) {
+    public convenience init(startYear: Int, endYear: Int, multiSelection: Bool, selectedDates: [NSDate]?) {
+        self.init(startYear: startYear, endYear: endYear, multiSelection: multiSelection, doneBtnSingleSelect: EPDefaults.doneBtnSingleSelection, selectedDates: selectedDates)
+    }
+    
+    public convenience init(startYear: Int, endYear: Int, doneBtnSingleSelect: Bool) {
+        self.init(startYear: startYear, endYear: endYear, multiSelection: false, doneBtnSingleSelect: doneBtnSingleSelect, selectedDates: nil)
+    }
+    
+    public init(startYear: Int, endYear: Int, multiSelection: Bool, doneBtnSingleSelect:Bool, selectedDates: [NSDate]?) {
         
         self.startYear = startYear
         self.endYear = endYear
         
         self.multiSelectEnabled = multiSelection
+        self.doneBtnSingleSelectEnabled = doneBtnSingleSelect
         
         //Text color initializations
         self.tintColor = EPDefaults.tintColor
@@ -284,9 +296,26 @@ public class EPCalendarPicker: UICollectionViewController {
     override public func collectionView(collectionView: UICollectionView, didSelectItemAtIndexPath indexPath: NSIndexPath) {
         let cell = collectionView.cellForItemAtIndexPath(indexPath) as! EPCalendarCell1
         if !multiSelectEnabled && cell.isCellSelectable! {
-            calendarDelegate?.epCalendarPicker!(self, didSelectDate: cell.currentDate)
+            
+            selectedDate = cell.currentDate
+            if (selectedCell != nil){
+                if selectedCell!.currentDate.isSaturday() || selectedCell!.currentDate.isSunday() {
+                    selectedCell!.deSelectedForLabelColor(weekendTintColor)
+                }
+                else {
+                    selectedCell!.deSelectedForLabelColor(weekdayTintColor)
+                }
+                if selectedCell!.currentDate.isToday() && hightlightsToday{
+                    selectedCell!.setTodayCellColor(todayTintColor)
+                }
+            }
+            selectedCell = cell
             cell.selectedForLabelColor(dateSelectionColor)
-            dismissViewControllerAnimated(true, completion: nil)
+            
+            if !doneBtnSingleSelectEnabled{
+                calendarDelegate?.epCalendarPicker!(self, didSelectDate: cell.currentDate)
+                dismissViewControllerAnimated(true, completion: nil)
+            }
             return
         }
         
@@ -329,8 +358,16 @@ public class EPCalendarPicker: UICollectionViewController {
     
     internal func onTouchDoneButton() {
         //gathers all the selected dates and pass it to the delegate
-        calendarDelegate?.epCalendarPicker!(self, didSelectMultipleDate: arrSelectedDates)
-        dismissViewControllerAnimated(true, completion: nil)
+        if doneBtnSingleSelectEnabled{
+            calendarDelegate?.epCalendarPicker!(self, didSelectDate: selectedDate)
+            dismissViewControllerAnimated(true, completion: nil)
+            
+            return
+        }
+        else{
+            calendarDelegate?.epCalendarPicker!(self, didSelectMultipleDate: arrSelectedDates)
+            dismissViewControllerAnimated(true, completion: nil)
+        }
     }
 
     internal func onTouchTodayButton() {
